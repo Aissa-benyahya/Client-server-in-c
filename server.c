@@ -4,15 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef LINUX_KEY_WORD
+#ifdef __linux__
     #include <unistd.h>
     #include <sys/types.h>
     #include <sys/socket.h>
     #include <netinet/in.h>
-#elif WINDOWS_KEY_WORD
-    #include <WinSock2.h>
+#elif __WIN32
+    #include <winsock2.h>
+   
 #else 
-  #error "OS not supported!"
+
 #endif
 
 // A function to print errors
@@ -24,12 +25,33 @@ void error(const char *msg)
 
 int main(int argc, char *argv[])
 {
-    int sockfd, newsockfd, portno;
-    socklen_t clilen;
+	#ifdef __linux__
+    	int sockfd, newsockfd, portno;
+    	int clilen;
+    	struct sockaddr_in serv_addr, cli_addr; // Two structure to hold server socketoptions and client socket option such as IP and Port
+    #elif __WIN32
+    	WSADATA wsaData;
+    	SOCKET sockfd;
+    	SOCKET newsockfd;
+    	SOCKADDR_IN serv_addr, cli_addr;
+    	int portno, clilen;
+
+		if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
+		{
+        	printf("Server: WSAStartup failed with error %ld\n", WSAGetLastError());
+        	// Exit with error
+			return -1;
+    	}
+    	else
+		{
+        	printf("Server: The Winsock dll found!\n");
+       	 	printf("Server: The current status is %s.\n", wsaData.szSystemStatus);
+    	}
+    #else
+    #endif
+    
     char client_message[256];
     char server_message[256];
-    struct sockaddr_in serv_addr, cli_addr; // Two structure to hold server socketoptions and client socket option such as IP and Port
-    int n;
 
     // Check whether the port value is provided by the user or not
     if (argc < 2) {
@@ -38,19 +60,20 @@ int main(int argc, char *argv[])
     }
 
     // create a server TCP socket
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) 
+    sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sockfd  == INVALID_SOCKET) 
        error("ERROR opening socket");
 
     //clean the memory buffer of serv_addr
-    bzero((char *) &serv_addr, sizeof(serv_addr));
+    //bzero((char *) &serv_addr, sizeof(serv_addr));
+    memset(&serv_addr, 0, sizeof(serv_addr));
 
     // Turn the privided port by user into an integer
     portno = atoi(argv[1]); 
     
     // Set server IP and port
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     serv_addr.sin_port = htons(portno); // Turn the port from host format to network format
 
     // Bind the socket with IP and port
@@ -73,8 +96,10 @@ int main(int argc, char *argv[])
 
     while(1){
         // Clean the buffers
-        bzero(client_message,256);
-        bzero(server_message,256);
+        //bzero(client_message,256);
+        memset(&client_message, 0, sizeof(client_message));
+        //bzero(server_message,256);
+        memset(&server_message, 0, sizeof(server_message));
 
         // Reveive message from the client    
         if(recv(newsockfd,client_message,sizeof(client_message), 0) < 0)
