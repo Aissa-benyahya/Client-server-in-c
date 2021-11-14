@@ -3,10 +3,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/types.h> 
-#include <sys/socket.h>
-#include <netinet/in.h>
+
+#ifdef LINUX_KEY_WORD
+    #include <unistd.h>
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+#elif WINDOWS_KEY_WORD
+    #include <WinSock2.h>
 
 // A function to print errors
 void error(const char *msg)
