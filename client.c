@@ -2,17 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef LINUX_KEY_WORD
+#ifdef __linux__
     #include <unistd.h>
     #include <sys/types.h>
     #include <sys/socket.h>
     #include <netinet/in.h>
-#elif WINDOWS_KEY_WORD
-    #include <WinSock2.h>
+#elif __WIN32
+    #include <winsock2.h>
 #else 
-  #error "OS not supported!"
-#endif
 
+#endif
 void error(const char *msg)
 {
     perror(msg);
@@ -21,8 +20,28 @@ void error(const char *msg)
 
 int main(int argc, char *argv[])
 {
-    int sockfd, portno, n;
-    struct sockaddr_in serv_addr;
+	#ifdef __linux__
+    	int sockfd, portno;
+    	struct sockaddr_in serv_addr; // Two structure to hold server socketoptions and client socket option such as IP and Port
+    #elif __WIN32
+    	WSADATA wsaData;
+    	SOCKET sockfd;
+    	SOCKADDR_IN serv_addr;
+    	int portno;
+
+		if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
+		{
+        	printf("Server: WSAStartup failed with error %ld\n", WSAGetLastError());
+        	// Exit with error
+			return -1;
+    	}
+    	else
+		{
+        	printf("Server: The Winsock dll found!\n");
+       	 	printf("Server: The current status is %s.\n", wsaData.szSystemStatus);
+    	}
+    #else
+    #endif
     struct hostent *server;
 
     char client_message[256], server_message[256];
@@ -36,16 +55,28 @@ int main(int argc, char *argv[])
     if (sockfd < 0) 
         error("ERROR opening socket");
     // get the IP using the name like (www.google.com)
-    server = gethostbyname(argv[1]);
-    if (server == NULL) {
-        fprintf(stderr,"ERROR, no such host\n");
-        exit(0);
-    }
-    bzero((char *) &serv_addr, sizeof(serv_addr));
+    #ifdef __linux__
+    	server = gethostbyname(argv[1]);
+    	if (server == NULL) {
+        	fprintf(stderr,"ERROR, no such host\n");
+        	exit(0);
+    	}
+	#endif
+		
+    memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, 
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
+    #ifdef __WIN32
+    	if (isalpha(argv[1][0]))
+    	{   // server address is a name
+        	server = gethostbyname(argv[1]);
+    	}
+    	else
+    	{ // Convert nnn.nnn address to a usable one
+        	int addr = inet_addr(argv[1]);
+        	server = gethostbyaddr((char *)&addr, 4, AF_INET);
+    	}
+    #endif
+    memcpy(&(serv_addr.sin_addr), server->h_addr, server->h_length);
     serv_addr.sin_port = htons(portno);
 
     printf("[+] Connecting to the server...\n");
@@ -54,8 +85,8 @@ int main(int argc, char *argv[])
     printf("[+] Connection Granted!\n");
     while(1){
 
-        bzero(client_message,256);
-        bzero(server_message,256);
+        memset(client_message,0, strlen(client_message));
+        memset(server_message,0, strlen(server_message));
 
         printf("Client: ");
         fgets(client_message,255,stdin);
