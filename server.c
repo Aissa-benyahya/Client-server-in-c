@@ -11,6 +11,9 @@
     #include <netinet/in.h>
 #elif WINDOWS_KEY_WORD
     #include <WinSock2.h>
+#else 
+  #error "OS not supported!"
+#endif
 
 // A function to print errors
 void error(const char *msg)
